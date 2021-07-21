@@ -14,7 +14,7 @@ setup(
     packages=find_packages(exclude=[]),
     install_requires=[
         "neuralpredictors",
-        "pytorch",
+        "torch",
         "numpy"
     ],
 )
