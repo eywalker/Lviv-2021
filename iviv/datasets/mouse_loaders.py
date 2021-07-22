@@ -9,7 +9,7 @@ from neuralpredictors.data.transforms import (NeuroNormalizer, Subsample,
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 
-from ..utility.data_helpers import get_oracle_dataloader
+from ..utility.data_helper import get_oracle_dataloader
 from ..utility.nn_helper import set_random_seed
 
 
@@ -76,9 +76,7 @@ def static_loader(
     data_key = path.split("static")[-1].split(".")[0].replace("preproc", "").replace("_nobehavior", "")
 
     dat = (
-        FileTreeDataset(path, "images", "responses", "behavior")
-        if include_behavior
-        else FileTreeDataset(path, "images", "responses")
+        FileTreeDataset(path, "images", "responses")
     )
 
     # The permutation MUST be added first and the conditions below MUST NOT be based on the original order
