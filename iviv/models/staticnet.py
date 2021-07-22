@@ -9,7 +9,7 @@ from neuralpredictors.layers.readouts import (
     MultipleSpatialXFeatureLinear,
     MultipleFullSXF,
 )
-from ..utility.data_helpers import unpack_data_info
+from ..utility.data_helper import unpack_data_info
 from neuralpredictors.layers.cores import TransferLearningCore, SE2dCore
 
 
