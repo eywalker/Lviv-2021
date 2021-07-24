@@ -32,6 +32,7 @@ def static_loader(
     exclude="images",
     return_test_sampler=False,
     oracle_condition=None,
+    seed=None,
 ):
     """
     returns a single data loader
@@ -61,6 +62,7 @@ def static_loader(
         if get_key is False returns a dictionary of dataloaders for one dataset, where the keys are 'train', 'validation', and 'test'.
         if get_key is True it returns the data_key (as the first output) followed by the dataloder dictionary.
     """
+    set_random_seed(seed)
     assert any(
         [image_ids is None, all([image_n is None, image_base_seed is None])]
     ), "image_ids can not be set at the same time with anhy other image selection criteria"
@@ -135,86 +137,3 @@ def static_loader(
 
     # create the data_key for a specific data path
     return (data_key, dataloaders) if get_key else dataloaders
-
-
-def static_loaders(
-    paths,
-    batch_size,
-    seed=None,
-    areas=None,
-    layers=None,
-    tier=None,
-    neuron_ids=None,
-    neuron_n=None,
-    exclude_neuron_n=0,
-    neuron_base_seed=None,
-    image_ids=None,
-    image_n=None,
-    image_base_seed=None,
-    cuda=True,
-    normalize=True,
-    exclude="images",
-    return_test_sampler=False,
-    oracle_condition=None,
-):
-    """
-    Returns a dictionary of dataloaders (i.e., trainloaders, valloaders, and testloaders) for >= 1 dataset(s).
-    Args:
-        paths (list): list of paths for the datasets
-        batch_size (int): batch size.
-        seed (int): seed. Not really needed because there are neuron and image seed. But nnFabrik requires it.
-        areas (list, optional): the visual area.
-        layers (list, optional): the layer from visual area.
-        tier (str, optional): tier is a placeholder to specify which set of images to pick for train, val, and test loader.
-        neuron_ids (list, optional): List of lists of neuron_ids. Make sure the order is the same as in paths
-        neuron_n (int, optional): number of neurons to select randomly. Can not be set together with neuron_ids
-        exclude_neuron_n (int): the first <exclude_neuron_n> neurons will be excluded (given a neuron_base_seed),
-                                then <neuron_n> neurons will be drawn from the remaining neurons.
-        neuron_base_seed (float, optional): base seed for neuron selection. Get's multiplied by neuron_n to obtain final seed
-        image_ids (list, optional): List of lists of image_ids. Make sure the order is the same as in paths
-        image_n (int, optional): number of images to select randomly. Can not be set together with image_ids
-        image_base_seed (float, optional): base seed for image selection. Get's multiplied by image_n to obtain final seed
-        cuda (bool, optional): whether to place the data on gpu or not.
-        normalize (bool, optional): whether to normalize the data (see also exclude)
-        exclude (str, optional): data to exclude from data-normalization. Only relevant if normalize=True. Defaults to 'images'
-        include_behavior (bool, optional): whether to include behavioral data
-        select_input_channel (int, optional): Only for color images. Select a color channel
-        file_tree (bool, optional): whether to use the file tree dataset format. If False, equivalent to the HDF5 format
-        return_test_sampler (bool, optional): whether to return only the test loader with repeat-batches
-        oracle_condition (list, optional): Only relevant if return_test_sampler=True. Class indices for the sampler
-    Returns:
-        dict: dictionary of dictionaries where the first level keys are 'train', 'validation', and 'test', and second level keys are data_keys.
-    """
-    set_random_seed(seed)
-    dls = OrderedDict({})
-    keys = [tier] if tier else ["train", "validation", "test"]
-    for key in keys:
-        dls[key] = OrderedDict({})
-
-    neuron_ids = [neuron_ids] if neuron_ids is None else neuron_ids
-    image_ids = [image_ids] if image_ids is None else image_ids
-    for path, neuron_id, image_id in zip_longest(paths, neuron_ids, image_ids, fillvalue=None):
-        data_key, loaders = static_loader(
-            path,
-            batch_size,
-            areas=areas,
-            layers=layers,
-            cuda=cuda,
-            tier=tier,
-            get_key=True,
-            neuron_ids=neuron_id,
-            neuron_n=neuron_n,
-            exclude_neuron_n=exclude_neuron_n,
-            neuron_base_seed=neuron_base_seed,
-            image_ids=image_id,
-            image_n=image_n,
-            image_base_seed=image_base_seed,
-            normalize=normalize,
-            exclude=exclude,
-            return_test_sampler=return_test_sampler,
-            oracle_condition=oracle_condition,
-        )
-        for k in dls:
-            dls[k][data_key] = loaders[k]
-
-    return dls

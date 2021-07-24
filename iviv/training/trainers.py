@@ -13,7 +13,7 @@ from ..utility.measures import get_correlations, get_poisson_loss
 
 def standard_trainer(
     model,
-    dataloaders,
+    dataloader,
     seed,
     avg_loss=False,
     scale_loss=True,
@@ -68,12 +68,12 @@ def standard_trainer(
     Returns:
     """
 
-    def full_objective(model, dataloader, data_key, *args, detach_core):
+    def full_objective(model, dataloader, *args, detach_core):
 
-        loss_scale = np.sqrt(len(dataloader[data_key].dataset) / args[0].shape[0]) if scale_loss else 1.0
-        regularizers = int(not detach_core) * model.core.regularizer() + model.readout.regularizer(data_key)
+        loss_scale = np.sqrt(len(dataloader.dataset) / args[0].shape[0]) if scale_loss else 1.0
+        regularizers = model.regularizer()
         return (
-            loss_scale * criterion(model(args[0].to(device), data_key, detach_core=detach_core), args[1].to(device))
+            loss_scale * criterion(model(args[0].to(device)), args[1].to(device))
             + regularizers
         )
 
@@ -85,13 +85,12 @@ def standard_trainer(
     criterion = getattr(mlmeasures, loss_function)(avg=avg_loss)
     stop_closure = partial(
         getattr(measures, stop_function),
-        dataloaders=dataloaders["validation"],
+        dataloader=dataloader["validation"],
         device=device,
         per_neuron=False,
-        avg=True,
     )
 
-    n_iterations = len(LongCycler(dataloaders["train"]))
+    n_iterations = len(dataloader["train"])
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr_init)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -106,13 +105,13 @@ def standard_trainer(
     )
 
     # set the number of iterations over which you would like to accummulate gradients
-    optim_step_count = len(dataloaders["train"].keys()) if loss_accum_batch_n is None else loss_accum_batch_n
+    optim_step_count = 1 if loss_accum_batch_n is None else loss_accum_batch_n
 
     if track_training:
         tracker_dict = dict(
-            correlation=partial(get_correlations, model, dataloaders["validation"], device=device, per_neuron=False),
+            correlation=partial(get_correlations, model=model, dataloader=dataloader["validation"], device=device, per_neuron=False),
             poisson_loss=partial(
-                get_poisson_loss, model, dataloaders["validation"], device=device, per_neuron=False, avg=False
+                get_poisson_loss, model, dataloader["validation"], device=device, per_neuron=False,
             ),
         )
         if hasattr(model, "tracked_values"):
@@ -149,11 +148,11 @@ def standard_trainer(
 
         # train over batches
         optimizer.zero_grad()
-        for batch_no, (data_key, data) in tqdm(
-            enumerate(LongCycler(dataloaders["train"])), total=n_iterations, desc="Epoch {}".format(epoch)
+        for batch_no, data in tqdm(
+            enumerate(dataloader["train"]), total=n_iterations, desc="Epoch {}".format(epoch)
         ):
 
-            loss = full_objective(model, dataloaders["train"], data_key, *data, detach_core=detach_core)
+            loss = full_objective(model, dataloader["train"], *data, detach_core=detach_core)
             loss.backward()
             if (batch_no + 1) % optim_step_count == 0:
                 optimizer.step()
@@ -165,9 +164,9 @@ def standard_trainer(
 
     # Compute avg validation and test correlation
     validation_correlation = get_correlations(
-        model, dataloaders["validation"], device=device, as_dict=False, per_neuron=False
+        model, dataloader["validation"], device=device, as_dict=False, per_neuron=False
     )
-    test_correlation = get_correlations(model, dataloaders["test"], device=device, as_dict=False, per_neuron=False)
+    test_correlation = get_correlations(model, dataloader["test"], device=device, as_dict=False, per_neuron=False)
 
     # return the whole tracker output as a dict
     output = {k: v for k, v in tracker.log.items()} if track_training else {}
