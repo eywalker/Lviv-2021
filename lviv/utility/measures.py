@@ -7,7 +7,9 @@ import types
 import contextlib
 
 
-def model_predictions_repeats(model, dataloader, device="cpu", broadcast_to_target=False):
+def model_predictions_repeats(
+    model, dataloader, device="cpu", broadcast_to_target=False
+):
     """
     Computes model predictions for a dataloader that yields batches with identical inputs along the first dimension.
     Unique inputs will be forwarded only once through the model
@@ -24,13 +26,34 @@ def model_predictions_repeats(model, dataloader, device="cpu", broadcast_to_targ
             images = images.squeeze(dim=0)
             responses = responses.squeeze(dim=0)
 
-        assert torch.all(torch.eq(images[-1,], images[0,])), "All images in the batch should be equal"
-        unique_images = torch.cat((unique_images, images[0:1,]), dim=0)
+        assert torch.all(
+            torch.eq(
+                images[
+                    -1,
+                ],
+                images[
+                    0,
+                ],
+            )
+        ), "All images in the batch should be equal"
+        unique_images = torch.cat(
+            (
+                unique_images,
+                images[
+                    0:1,
+                ],
+            ),
+            dim=0,
+        )
         target.append(responses.detach().cpu().numpy())
 
     # Forward unique images once:
-    with eval_state(model) if not isinstance(model, types.FunctionType) else contextlib.nullcontext():
-        with device_state(model, device) if not isinstance(model, types.FunctionType) else contextlib.nullcontext():
+    with eval_state(model) if not isinstance(
+        model, types.FunctionType
+    ) else contextlib.nullcontext():
+        with device_state(model, device) if not isinstance(
+            model, types.FunctionType
+        ) else contextlib.nullcontext():
             output = model(unique_images.to(device)).detach().cpu()
 
     output = output.numpy()
@@ -55,8 +78,12 @@ def model_predictions(model, dataloader, device="cpu"):
             images = images.squeeze(dim=0)
             responses = responses.squeeze(dim=0)
         with torch.no_grad():
-            with device_state(model, device) if not isinstance(model, types.FunctionType) else contextlib.nullcontext():
-                output = torch.cat((output, (model(images.to(device)).detach().cpu())), dim=0)
+            with device_state(model, device) if not isinstance(
+                model, types.FunctionType
+            ) else contextlib.nullcontext():
+                output = torch.cat(
+                    (output, (model(images.to(device)).detach().cpu())), dim=0
+                )
             target = torch.cat((target, responses.detach().cpu()), dim=0)
 
     return target.numpy(), output.numpy()
@@ -71,37 +98,53 @@ def get_avg_correlations(model, dataloader, device="cpu", per_neuron=True, **kwa
 
     # Compute correlation with average targets
     target, output = model_predictions_repeats(
-        dataloader=loader, model=model, device=device, broadcast_to_target=False
+        dataloader=dataloader, model=model, device=device, broadcast_to_target=False
     )
     target_mean = np.array([t.mean(axis=0) for t in target])
     correlation = corr(target_mean, output, axis=0)
 
     # Check for nans
     if np.any(np.isnan(correlation)):
-        warnings.warn("{}% NaNs , NaNs will be set to Zero.".format(np.isnan(correlation).mean() * 100))
+        warnings.warn(
+            "{}% NaNs , NaNs will be set to Zero.".format(
+                np.isnan(correlation).mean() * 100
+            )
+        )
     correlation[np.isnan(correlation)] = 0
 
     if not per_neuron:
-        correlation = (np.mean(correlation))
+        correlation = np.mean(correlation)
     return correlation
 
 
 def get_correlations(model, dataloader, device="cpu", per_neuron=True, **kwargs):
-    with eval_state(model) if not isinstance(model, types.FunctionType) else contextlib.nullcontext():
-        target, output = model_predictions(dataloader=dataloader, model=model, device=device)
+    with eval_state(model) if not isinstance(
+        model, types.FunctionType
+    ) else contextlib.nullcontext():
+        target, output = model_predictions(
+            dataloader=dataloader, model=model, device=device
+        )
         correlations = corr(target, output, axis=0)
 
         if np.any(np.isnan(correlations)):
-            warnings.warn("{}% NaNs , NaNs will be set to Zero.".format(np.isnan(correlations[k]).mean() * 100))
+            warnings.warn(
+                "{}% NaNs , NaNs will be set to Zero.".format(
+                    np.isnan(correlations[k]).mean() * 100
+                )
+            )
         correlations[np.isnan(correlations)] = 0
     if not per_neuron:
-        correlations = np.mean(correlations)    
+        correlations = np.mean(correlations)
     return correlations
 
 
 def get_poisson_loss(model, dataloader, device="cpu", per_neuron=True, eps=1e-12):
-    with eval_state(model) if not isinstance(model, types.FunctionType) else contextlib.nullcontext():
-        target, output = model_predictions(dataloader=dataloader, model=model, device=device)
+    with eval_state(model) if not isinstance(
+        model, types.FunctionType
+    ) else contextlib.nullcontext():
+        target, output = model_predictions(
+            dataloader=dataloader, model=model, device=device
+        )
         loss = output - target * np.log(output + eps)
         poisson_loss = np.sum(loss, axis=0)
     if not per_neuron:
@@ -121,9 +164,13 @@ def get_repeats(dataloader, min_repeats=2):
             inputs = inputs.cpu().numpy()
             outputs = outputs.cpu().numpy()
         r, n = outputs.shape  # number of frame repeats, number of neurons
-        if r < min_repeats:  # minimum number of frame repeats to be considered for oracle, free choice
+        if (
+            r < min_repeats
+        ):  # minimum number of frame repeats to be considered for oracle, free choice
             continue
-        assert np.all(np.abs(np.diff(inputs, axis=0)) == 0), "Images of oracle trials do not match"
+        assert np.all(
+            np.abs(np.diff(inputs, axis=0)) == 0
+        ), "Images of oracle trials do not match"
         repeated_inputs.append(inputs)
         repeated_outputs.append(outputs)
     return np.array(repeated_inputs), np.array(repeated_outputs)
@@ -162,10 +209,16 @@ def compute_oracle_corr_corrected(repeated_outputs):
 def compute_oracle_corr(repeated_outputs):
     if len(repeated_outputs.shape) == 3:
         _, r, n = repeated_outputs.shape
-        oracles = (repeated_outputs.mean(axis=1, keepdims=True) - repeated_outputs / r) * r / (r - 1)
+        oracles = (
+            (repeated_outputs.mean(axis=1, keepdims=True) - repeated_outputs / r)
+            * r
+            / (r - 1)
+        )
         if np.any(np.isnan(oracles)):
             warnings.warn(
-                "{}% NaNs when calculating the oracle. NaNs will be set to Zero.".format(np.isnan(oracles).mean() * 100)
+                "{}% NaNs when calculating the oracle. NaNs will be set to Zero.".format(
+                    np.isnan(oracles).mean() * 100
+                )
             )
         oracles[np.isnan(oracles)] = 0
         return corr(oracles.reshape(-1, n), repeated_outputs.reshape(-1, n), axis=0)

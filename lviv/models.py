@@ -2,15 +2,11 @@ import numpy as np
 from torch import nn
 import copy
 
-from ..utility.nn_helper import set_random_seed, get_dims_for_loader_dict
-from neuralpredictors.layers.readouts import (
-    MultipleFullGaussian2d,
-    MultiplePointPooled2d,
-    MultipleSpatialXFeatureLinear,
-    MultipleFullSXF,
-)
-from ..utility.data_helper import unpack_data_info
-from neuralpredictors.layers.cores import TransferLearningCore, SE2dCore
+from .utility.nn_helper import set_random_seed, get_dims_for_loader_dict
+from .utility.data_helper import unpack_data_info
+
+from neuralpredictors.layers.readouts import MultipleFullGaussian2d
+from neuralpredictors.layers.cores import SE2dCore
 
 
 class Encoder(nn.Module):
@@ -21,6 +17,8 @@ class Encoder(nn.Module):
         self.offset = elu_offset
 
     def forward(self, x, data_key=None, detach_core=False, **kwargs):
+        if data_key is None and len(self.readout) == 1:
+            data_key = list(self.readout.keys())[0]
         x = self.core(x)
         if detach_core:
             x = x.detach()
@@ -30,8 +28,13 @@ class Encoder(nn.Module):
             x = self.readout(x, data_key=data_key)
         return nn.functional.elu(x + self.offset) + 1
 
+    def regularizer(self, data_key=None):
+        if data_key is None and len(self.readout) == 1:
+            data_key = list(self.readout.keys())[0]
+        return self.core.regularizer() + self.readout.regularizer(data_key)
 
-def se2d_fullgaussian2d(
+
+def build_lurz2020_model(
     dataloaders,
     seed,
     elu_offset=0,
@@ -118,6 +121,11 @@ def se2d_fullgaussian2d(
         if "train" in dataloaders.keys():
             dataloaders = dataloaders["train"]
 
+        if not isinstance(dataloaders, dict):
+            # if only single dataloader given, give the dataset a name and nest into a dict
+            # for compatibility
+            dataloaders = dict(dataset=dataloaders)
+
         # Obtain the named tuple fields from the first entry of the first dataloader in the dictionary
         in_name, out_name = next(iter(list(dataloaders.values())[0]))._fields
 
@@ -126,7 +134,11 @@ def se2d_fullgaussian2d(
         in_shapes_dict = {k: v[in_name] for k, v in session_shape_dict.items()}
         input_channels = [v[in_name][1] for v in session_shape_dict.values()]
 
-    core_input_channels = list(input_channels.values())[0] if isinstance(input_channels, dict) else input_channels[0]
+    core_input_channels = (
+        list(input_channels.values())[0]
+        if isinstance(input_channels, dict)
+        else input_channels[0]
+    )
 
     source_grids = None
     grid_mean_predictor_type = None
@@ -140,7 +152,9 @@ def se2d_fullgaussian2d(
                 # real data
                 try:
                     if v.dataset.neurons.animal_ids[0] != 0:
-                        source_grids[k] = v.dataset.neurons.cell_motor_coordinates[:, :input_dim]
+                        source_grids[k] = v.dataset.neurons.cell_motor_coordinates[
+                            :, :input_dim
+                        ]
                     # simulated data -> get random linear non-degenerate transform of true positions
                     else:
                         source_grid_true = v.dataset.neurons.center[:, :input_dim]
@@ -152,18 +166,30 @@ def se2d_fullgaussian2d(
                             det = np.linalg.det(matrix)
                             loops += 1
                         assert det > 5.0, "Did not find a non-degenerate matrix"
-                        source_grids[k] = np.add((matrix @ source_grid_true.T).T, grid_bias)
+                        source_grids[k] = np.add(
+                            (matrix @ source_grid_true.T).T, grid_bias
+                        )
                 except FileNotFoundError:
-                    print("Dataset type is not recognized to be from Baylor College of Medicine.")
-                    source_grids[k] = v.dataset.neurons.cell_motor_coordinates[:, :input_dim]
+                    print(
+                        "Dataset type is not recognized to be from Baylor College of Medicine."
+                    )
+                    source_grids[k] = v.dataset.neurons.cell_motor_coordinates[
+                        :, :input_dim
+                    ]
         elif grid_mean_predictor_type == "shared":
             pass
         else:
-            raise ValueError("Grid mean predictor type {} not understood.".format(grid_mean_predictor_type))
+            raise ValueError(
+                "Grid mean predictor type {} not understood.".format(
+                    grid_mean_predictor_type
+                )
+            )
 
     shared_match_ids = None
     if share_features or share_grid:
-        shared_match_ids = {k: v.dataset.neurons.multi_match_id for k, v in dataloaders.items()}
+        shared_match_ids = {
+            k: v.dataset.neurons.multi_match_id for k, v in dataloaders.items()
+        }
         all_multi_unit_ids = set(np.hstack(shared_match_ids.values()))
 
         for match_id in shared_match_ids.values():
