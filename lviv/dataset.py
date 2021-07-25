@@ -62,7 +62,8 @@ def load_dataset(
         if get_key is False returns a dictionary of dataloaders for one dataset, where the keys are 'train', 'validation', and 'test'.
         if get_key is True it returns the data_key (as the first output) followed by the dataloder dictionary.
     """
-    set_random_seed(seed)
+    if seed is not None:
+        set_random_seed(seed)
     assert any(
         [image_ids is None, all([image_n is None, image_base_seed is None])]
     ), "image_ids can not be set at the same time with any other image selection criteria"
