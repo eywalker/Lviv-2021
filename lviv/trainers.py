@@ -33,9 +33,8 @@ def train_model(
     lr_decay_factor=0.3,
     min_lr=0.0001,
     cb=None,
-    track_training=False,
+    track_training=True,
     return_test_score=False,
-    detach_core=False,
     **kwargs
 ):
     """
@@ -69,10 +68,10 @@ def train_model(
 
     ##### Model training ####################################################################################################
     model.to(device)
-    set_random_seed(seed)
+    if seed is not None:
+        set_random_seed(seed)
     model.train()
     criterion = PoissonLoss(avg=avg_loss)
-    # criterion = getattr(mlmeasures, loss_function)(avg=avg_loss)
 
     def full_objective(model, dataloader, images, responses, *args):
 
