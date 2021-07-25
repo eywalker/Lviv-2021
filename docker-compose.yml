@@ -1,30 +1,16 @@
 version: '3.4'
-x-build: &build
-  context: .
-  dockerfile: Dockerfile
-  
-x-shared: &common
-  image: at-docker:5000/nnexplore
-  ipc: host
-  build:
-    context: .
-    dockerfile: Dockerfile
-    args:
-      - GITHUB_USER=${GITHUB_USER}
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - DEV_SOURCE=${DEV_SOURCE}
-  volumes:
-    - .:/src/Iviv-2021
-    - ../vivid:/src/vivid
-    - ./notebooks:/notebooks/nnexplore
-    - ${DATA_PATH:-./data}:/data
-    - ${NOTEBOOK_PATH:-~/notebooks}:/notebooks/local
-  env_file:
-    - .env
-
 services:
   notebook:
-    <<: *common
+    ipc: host
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/src/LVIV-2021
+      #- ../neuralpredictors/:/src/neuralpredictors
+      - ./notebooks:/notebooks
+      - ${DATA_PATH:-./data}:/data
     ports:
-      - "${JUPYTER_HOST:-0.0.0.0}:${JUPYTER_PORT:-8888}:8888"
-      - "${JUPYTER_HOST:-0.0.0.0}:${ST_PORT:-8501}:8501"
+      - "7777:8888"
+    env_file:
+      - .env
