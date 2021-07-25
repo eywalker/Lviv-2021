@@ -8,8 +8,8 @@ services:
     volumes:
       - .:/src/LVIV-2021
       #- ../neuralpredictors/:/src/neuralpredictors
-      - ./notebooks:/notebooks
-      - ${DATA_PATH:-./data}:/data
+      - ./notebooks:/content
+      - ${DATA_PATH:-./data}:/content/data
     ports:
       - "7777:8888"
     env_file:
