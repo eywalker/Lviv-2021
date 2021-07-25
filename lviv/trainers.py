@@ -3,21 +3,20 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from neuralpredictors import measures as mlmeasures
-from neuralpredictors.training import early_stopping, MultipleObjectiveTracker, LongCycler
-from ..utility.nn_helper import set_random_seed
+from neuralpredictors.measures import PoissonLoss
+from neuralpredictors.training import early_stopping, MultipleObjectiveTracker
+from .utility.nn_helper import set_random_seed
 
-from ..utility import measures
-from ..utility.measures import get_correlations, get_poisson_loss
+from .utility import measures
+from .utility.measures import get_correlations, get_poisson_loss
 
 
-def standard_trainer(
+def train_model(
     model,
     dataloader,
     seed,
     avg_loss=False,
     scale_loss=True,
-    loss_function="PoissonLoss",
     stop_function="get_correlations",
     loss_accum_batch_n=None,
     device="cuda",
@@ -34,9 +33,8 @@ def standard_trainer(
     lr_decay_factor=0.3,
     min_lr=0.0001,
     cb=None,
-    track_training=False,
+    track_training=True,
     return_test_score=False,
-    detach_core=False,
     **kwargs
 ):
     """
@@ -68,23 +66,28 @@ def standard_trainer(
     Returns:
     """
 
-    def full_objective(model, dataloader, *args, detach_core):
-
-        loss_scale = np.sqrt(len(dataloader.dataset) / args[0].shape[0]) if scale_loss else 1.0
-        regularizers = model.regularizer()
-        return (
-            loss_scale * criterion(model(args[0].to(device)), args[1].to(device))
-            + regularizers
-        )
-
     ##### Model training ####################################################################################################
     model.to(device)
-    set_random_seed(seed)
+    if seed is not None:
+        set_random_seed(seed)
     model.train()
+    criterion = PoissonLoss(avg=avg_loss)
 
-    criterion = getattr(mlmeasures, loss_function)(avg=avg_loss)
+    def full_objective(model, dataloader, images, responses, *args):
+
+        loss_scale = (
+            np.sqrt(len(dataloader.dataset) / images.shape[0]) if scale_loss else 1.0
+        )
+
+        total_loss = (
+            loss_scale * criterion(model(images.to(device)), responses.to(device))
+            + model.regularizer()
+        )
+
+        return total_loss
+
     stop_closure = partial(
-        getattr(measures, stop_function),
+        get_correlations,
         dataloader=dataloader["validation"],
         device=device,
         per_neuron=False,
@@ -109,9 +112,19 @@ def standard_trainer(
 
     if track_training:
         tracker_dict = dict(
-            correlation=partial(get_correlations, model=model, dataloader=dataloader["validation"], device=device, per_neuron=False),
+            correlation=partial(
+                get_correlations,
+                model=model,
+                dataloader=dataloader["validation"],
+                device=device,
+                per_neuron=False,
+            ),
             poisson_loss=partial(
-                get_poisson_loss, model, dataloader["validation"], device=device, per_neuron=False,
+                get_poisson_loss,
+                model,
+                dataloader["validation"],
+                device=device,
+                per_neuron=False,
             ),
         )
         if hasattr(model, "tracked_values"):
@@ -149,10 +162,12 @@ def standard_trainer(
         # train over batches
         optimizer.zero_grad()
         for batch_no, data in tqdm(
-            enumerate(dataloader["train"]), total=n_iterations, desc="Epoch {}".format(epoch)
+            enumerate(dataloader["train"]),
+            total=n_iterations,
+            desc="Epoch {}".format(epoch),
         ):
 
-            loss = full_objective(model, dataloader["train"], *data, detach_core=detach_core)
+            loss = full_objective(model, dataloader["train"], *data)
             loss.backward()
             if (batch_no + 1) % optim_step_count == 0:
                 optimizer.step()
@@ -166,11 +181,17 @@ def standard_trainer(
     validation_correlation = get_correlations(
         model, dataloader["validation"], device=device, as_dict=False, per_neuron=False
     )
-    test_correlation = get_correlations(model, dataloader["test"], device=device, as_dict=False, per_neuron=False)
+    test_correlation = get_correlations(
+        model, dataloader["test"], device=device, as_dict=False, per_neuron=False
+    )
 
     # return the whole tracker output as a dict
     output = {k: v for k, v in tracker.log.items()} if track_training else {}
     output["validation_corr"] = validation_correlation
 
-    score = np.mean(test_correlation) if return_test_score else np.mean(validation_correlation)
+    score = (
+        np.mean(test_correlation)
+        if return_test_score
+        else np.mean(validation_correlation)
+    )
     return score, output, model.state_dict()

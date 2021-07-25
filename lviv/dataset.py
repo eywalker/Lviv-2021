@@ -4,16 +4,16 @@ from itertools import zip_longest
 import numpy as np
 from neuralpredictors.data.datasets import FileTreeDataset
 from neuralpredictors.data.samplers import SubsetSequentialSampler
-from neuralpredictors.data.transforms import (NeuroNormalizer, Subsample,
-                                              ToTensor)
+from neuralpredictors.data.transforms import NeuroNormalizer, Subsample, ToTensor
+
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 
-from ..utility.data_helper import get_oracle_dataloader
-from ..utility.nn_helper import set_random_seed
+from .utility.data_helper import get_oracle_dataloader
+from .utility.nn_helper import set_random_seed
 
 
-def static_loader(
+def load_dataset(
     path,
     batch_size,
     areas=None,
@@ -62,24 +62,37 @@ def static_loader(
         if get_key is False returns a dictionary of dataloaders for one dataset, where the keys are 'train', 'validation', and 'test'.
         if get_key is True it returns the data_key (as the first output) followed by the dataloder dictionary.
     """
-    set_random_seed(seed)
+    if seed is not None:
+        set_random_seed(seed)
     assert any(
         [image_ids is None, all([image_n is None, image_base_seed is None])]
-    ), "image_ids can not be set at the same time with anhy other image selection criteria"
+    ), "image_ids can not be set at the same time with any other image selection criteria"
     assert any(
         [
             neuron_ids is None,
-            all([neuron_n is None, neuron_base_seed is None, areas is None, layers is None, exclude_neuron_n == 0]),
+            all(
+                [
+                    neuron_n is None,
+                    neuron_base_seed is None,
+                    areas is None,
+                    layers is None,
+                    exclude_neuron_n == 0,
+                ]
+            ),
         ]
     ), "neuron_ids can not be set at the same time with any other neuron selection criteria"
     assert any(
         [exclude_neuron_n == 0, neuron_base_seed is not None]
     ), "neuron_base_seed must be set when exclude_neuron_n is not 0"
-    data_key = path.split("static")[-1].split(".")[0].replace("preproc", "").replace("_nobehavior", "")
 
-    dat = (
-        FileTreeDataset(path, "images", "responses")
+    data_key = (
+        path.split("static")[-1]
+        .split(".")[0]
+        .replace("preproc", "")
+        .replace("_nobehavior", "")
     )
+
+    dat = FileTreeDataset(path, "images", "responses")
 
     # The permutation MUST be added first and the conditions below MUST NOT be based on the original order
     # specify condition(s) for sampling neurons. If you want to sample specific neurons define conditions that would effect idx
@@ -92,16 +105,22 @@ def static_loader(
     if neuron_n is not None:
         random_state = np.random.get_state()
         if neuron_base_seed is not None:
-            np.random.seed(neuron_base_seed * neuron_n)  # avoid nesting by making seed dependent on number of neurons
+            np.random.seed(
+                neuron_base_seed * neuron_n
+            )  # avoid nesting by making seed dependent on number of neurons
         assert (
             len(dat.neurons.unit_ids) >= exclude_neuron_n + neuron_n
-        ), "After excluding {} neurons, there are not {} neurons left".format(exclude_neuron_n, neuron_n)
-        neuron_ids = np.random.choice(dat.neurons.unit_ids, size=exclude_neuron_n + neuron_n, replace=False)[
-            exclude_neuron_n:
-        ]
+        ), "After excluding {} neurons, there are not {} neurons left".format(
+            exclude_neuron_n, neuron_n
+        )
+        neuron_ids = np.random.choice(
+            dat.neurons.unit_ids, size=exclude_neuron_n + neuron_n, replace=False
+        )[exclude_neuron_n:]
         np.random.set_state(random_state)
     if neuron_ids is not None:
-        idx = [np.where(dat.neurons.unit_ids == unit_id)[0][0] for unit_id in neuron_ids]
+        idx = [
+            np.where(dat.neurons.unit_ids == unit_id)[0][0] for unit_id in neuron_ids
+        ]
 
     more_transforms = [Subsample(idx), ToTensor(cuda)]
     if normalize:
@@ -121,18 +140,30 @@ def static_loader(
     for tier in keys:
         # sample images
         if tier == "train" and image_ids is not None:
-            subset_idx = [np.where(image_id_array == image_id)[0][0] for image_id in image_ids]
-            assert sum(tier_array[subset_idx] != "train") == 0, "image_ids contain validation or test images"
+            subset_idx = [
+                np.where(image_id_array == image_id)[0][0] for image_id in image_ids
+            ]
+            assert (
+                sum(tier_array[subset_idx] != "train") == 0
+            ), "image_ids contain validation or test images"
         elif tier == "train" and image_n is not None:
             random_state = np.random.get_state()
             if image_base_seed is not None:
-                np.random.seed(image_base_seed * image_n)  # avoid nesting by making seed dependent on number of images
-            subset_idx = np.random.choice(np.where(tier_array == "train")[0], size=image_n, replace=False)
+                np.random.seed(
+                    image_base_seed * image_n
+                )  # avoid nesting by making seed dependent on number of images
+            subset_idx = np.random.choice(
+                np.where(tier_array == "train")[0], size=image_n, replace=False
+            )
             np.random.set_state(random_state)
         else:
             subset_idx = np.where(tier_array == tier)[0]
 
-        sampler = SubsetRandomSampler(subset_idx) if tier == "train" else SubsetSequentialSampler(subset_idx)
+        sampler = (
+            SubsetRandomSampler(subset_idx)
+            if tier == "train"
+            else SubsetSequentialSampler(subset_idx)
+        )
         dataloaders[tier] = DataLoader(dat, sampler=sampler, batch_size=batch_size)
 
     # create the data_key for a specific data path
