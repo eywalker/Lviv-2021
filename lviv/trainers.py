@@ -14,7 +14,7 @@ from .utility.measures import get_correlations, get_poisson_loss
 def train_model(
     model,
     dataloader,
-    seed,
+    seed=None,
     avg_loss=False,
     scale_loss=True,
     stop_function="get_correlations",
