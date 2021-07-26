@@ -189,7 +189,7 @@ def get_oracles_corrected(dataloader, per_neuron=True):
     oracle = compute_oracle_corr_corrected(np.array(outputs))
     if not per_neuron:
         oracle = np.mean(oracle)
-    return oracles
+    return oracle
 
 
 def compute_oracle_corr_corrected(repeated_outputs):
