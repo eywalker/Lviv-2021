@@ -8,5 +8,8 @@ FROM sinzlab/pytorch:v3.8-torch1.7.0-cuda11.0-dj0.12.7
 COPY . /src/LVIV-2021
 RUN pip install -e /src/LVIV-2021
 
+# Disable password system for Jupyter Notebook
+ENV JUPYTER_PASSWORD=''
+
 WORKDIR /content
 

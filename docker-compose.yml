@@ -7,10 +7,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - .:/src/LVIV-2021
-      #- ../neuralpredictors/:/src/neuralpredictors
       - ./notebooks:/content
       - ${DATA_PATH:-./data}:/content/data
     ports:
-      - "7777:8888"
-    env_file:
-      - .env
+      - "${JUPYTER_PORT:-8888}:8888"
