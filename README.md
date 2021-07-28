@@ -3,7 +3,7 @@ Here you will find a collection of code and links for the [Deep Learning in Neur
 
 
 ## Most importantly, you can launch the Jupyter notebook for the workshop in Colab by clicking on the badge below!
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/eywalker/Lviv-2021/blob/draft/notebooks/DeepLearing%20in%20Neuroscience.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/eywalker/Lviv-2021/blob/main/notebooks/Deep-Learning-in-Neuroscience.ipynb)
 
 ## How to run on your own setup without Colab
 If you prefer to run this on your own machine and without using Colab, you can do so by using this repository content.
