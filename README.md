@@ -16,7 +16,7 @@ The repository is configured to work simply with `docker-compose`, so assuming y
 $ docker-compose up
 ```
 
-You can then navigate to `http://localhost:8888` in your browser to access the Jupyter Lab server, properly configured.
+You can then navigate to http://localhost:8888 in your browser to access the Jupyter Lab server, properly configured.
 
 ### Running natively
 If you prefer to not use Docker, then launch a Jupyter server and navigate to the Jupyter notebook `Deep-Learning-in-Neuroscience.ipynb` found in `notebooks` directory. You may have to adjust a few paths for your data download.
