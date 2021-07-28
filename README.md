@@ -10,7 +10,7 @@ If you prefer to run this on your own machine and without using Colab, you can d
 Start by downloading/cloning this repository. 
 
 ### Using Docker
-The repository is configured to work simply with `docker-compose`, so assuming you have [Dcoker](https://www.docker.com/) and `docker-compose` configured on your machine, all you'll have to do will be to navigate to the directory and run the following command:
+The repository is configured to work simply with `docker-compose`, so assuming you have [Docker](https://www.docker.com/) and `docker-compose` configured on your machine, all you'll have to do will be to navigate to the directory and run the following command:
 
 ```bash
 $ docker-compose up
