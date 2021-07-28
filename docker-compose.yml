@@ -9,5 +9,6 @@ services:
       - .:/src/LVIV-2021
       - ./notebooks:/content
       - ${DATA_PATH:-./data}:/content/data
+      - ./trained_nets:/content/trained_nets
     ports:
       - "${JUPYTER_PORT:-8888}:8888"
