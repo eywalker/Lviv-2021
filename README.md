@@ -1,4 +1,4 @@
-# Welcome to Deep Learning in Neuroscience session for Lviv Data Science Summer School 2021!
+# Welcome to Deep Learning in Neuroscience course for Lviv Data Science Summer School 2021!
 Here you will find a collection of code and links for the [Deep Learning in Neuroscience](https://apps.ucu.edu.ua/en/summerschool-ds/course-list/deep-learning-in-neuroscience/) taught by [Edgar Y. Walker](https://edgarwalker.com), as part of the [Lviv Data Science Summer School 2021](https://apps.ucu.edu.ua/en/summerschool-ds/).
 
 
