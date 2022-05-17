@@ -8,7 +8,16 @@ services:
     volumes:
       - .:/src/LVIV-2021
       - ./notebooks:/content
-      - ${DATA_PATH:-./data}:/content/data
+      - ./data:/content/data
       - ./trained_nets:/content/trained_nets
+    environment:
+    - GIT_SSL_NO_VERIFY=1
     ports:
       - "${JUPYTER_PORT:-8888}:8888"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
